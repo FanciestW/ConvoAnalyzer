@@ -12,7 +12,7 @@ def main():
 
     write_to_audio_file("out/before_smooth.wav", smoothed_signal, sample_rate)
 
-    smoothed_signal = smooth_signal(smoothed_signal, int(sample_rate/250), 10)
+    smoothed_signal = smooth_signal(smoothed_signal, int(sample_rate/500), 100)
 
     write_to_audio_file("out/after_smooth.wav", smoothed_signal, sample_rate)
 
@@ -21,7 +21,7 @@ def main():
 
     bool_signal = get_bool_arr(smoothed_signal, threshold, silence_window)
     bool_signal = smooth_signal(bool_signal, int(sample_rate/500), 100)
-    bool_signal = cut_audio(bool_signal, 0.125)
+    bool_signal = cut_audio(bool_signal, 0.150)
     write_to_audio_file("out/bool.wav", bool_signal.astype(float), sample_rate)
 
     audio_clips = split_np_array(signal, bool_signal)
@@ -34,12 +34,22 @@ def get_gender(signal, sr=44100):
     fourier = np.fft.rfft(signal)
     fourier_mag = np.abs(fourier)
     freq = np.fft.rfftfreq(signal.size, d=1./sr)
-    max_freq = freq[np.argmax(fourier_mag)]
+    # max_freq = freq[np.argmax(fourier_mag)]
     # print(max_freq)
-    if max_freq < 180:
-        print("male")
-    else:
-        print("female")
+    low_count = 0
+    high_count = 0
+    for i in freq:
+        if i < 165:
+            low_count += 1
+        else:
+            high_count += 1
+    
+    print(f"Lows: {low_count} Highs: {high_count}")
+
+    # if max_freq < 180:
+    #     print("male")
+    # else:
+    #     print("female")
 
 def get_gender2(signal, sr=44100):
     fft_out = fft(signal)
