@@ -9,18 +9,19 @@ from matplotlib import pyplot as plt
 from sys import platform as sys_pf
 from scipy.fftpack import fft
 
-import watson_developer_cloud
+
+from watson_developer_cloud import SpeechToTextV1
+from watson_developer_cloud import WatsonApiException
 from os.path import join, dirname
 import json
 
-speech_to_text = watson_developer_cloud.SpeechToTextV1(
+speech_to_text = SpeechToTextV1(
     iam_apikey='65qVRIfF-CQYgk268h9NJERzwiY-1xfRY6WCmpU9iF2L',
     url='https://stream.watsonplatform.net/speech-to-text/api'
 )
 
-
 def main():
-    audio_file = "audio/dailylife002.wav"
+    audio_file = "audio/dailylife024.wav"
     signal,sample_rate = librosa.load(audio_file, sr=None, mono=True)
 
     smoothed_signal = abs(signal)
@@ -53,33 +54,51 @@ def main():
     for i, clip in enumerate(audio_clips):
         write_to_audio_file(f"out/clip{i}.wav", clip, sample_rate)
         get_gender(smooth_signal(clip, window=10, passes=10))
-    getAudioText("file")
+    getAudioText(join(dirname(__file__), './out', 'clip2.wav'))
 
 def get_gender(signal, sr=44100):
-    fourier = np.fft.rfft(signal)
-    fourier_mag = np.abs(fourier)
-    fourier_mag = smooth_signal(fourier_mag, 10, 100)
-    freq = np.fft.rfftfreq(signal.size, d=1./sr)
-    start_male_range = np.argmax(freq >= 85)
-    end_male_range = np.argmax(freq >= 185)
-    start_female_range = np.argmax(freq >= 165)
-    end_female_range = np.argmax(freq >= 255)
+    signal = smooth_signal(signal, 50, 10)
+    male_points = 0
+    female_points = 0
+    small_signals = np.array_split(signal, 4)
+    for sig in small_signals:
+        fourier = np.fft.rfft(signal)
+        fourier_mag = np.abs(fourier)
+        fourier_mag = smooth_signal(fourier_mag, 10, 10)
+        freq = np.fft.rfftfreq(signal.size, d=1./sr)
+        start_male_range = np.argmax(freq >= 85)
+        end_male_range = np.argmax(freq >= 185)
+        start_female_range = np.argmax(freq >= 165)
+        end_female_range = np.argmax(freq >= 255)
 
-    male_avg = np.mean(fourier_mag[start_male_range:end_male_range])
-    female_avg = np.mean(fourier_mag[start_female_range:end_female_range])
-    max_freq = freq[np.argmax(fourier_mag)]
-    # print(male_avg, female_avg, np.argmax(fourier_mag), max_freq)
-    if male_avg > female_avg:
-        print('Male')
-    else:
-        print('Female')
+        male_avg = np.mean(fourier_mag[start_male_range:end_male_range])
+        female_avg = np.mean(fourier_mag[start_female_range:end_female_range])
+        max_freq = freq[np.argmax(fourier_mag)]
+        # print(male_avg, female_avg, np.argmax(fourier_mag), max_freq)
+        if male_avg > female_avg:
+            male_points += 1
+        else:
+            female_points += 1
     
-    # print(f"Lows: {low_count} Highs: {high_count}")
-    # 
-    # if max_freq < 180:
-    #     print("male")
-    # else:
-    #     print("female")
+    if male_points > female_points:
+        print("male")
+        return("male")
+    else:
+        print("female")
+        return("female")
+
+def combine_gender_audio(signals_arr, gender_arr):
+    if len(signals_arr) != len(gender_arr) or len(signals_arr) < 1 or len(gender_arr) < 1:
+        return None
+    return_signals = signals_arr[0]
+    tmp = signals_arr[0]
+    gender = gender_arr[0]
+    i = 1
+    while i < len(gender_arr):
+        if gender_arr[i] == gender:
+            
+        
+
 
 def cut_audio(arr, tolerence=0.2, sr=44100):
     time_stamps = list()
@@ -152,17 +171,14 @@ def plot(*data):
 
 def getAudioText(filepath):
     try:
-        files = ['clip0.wav', 'clip1.wav']
-        for file in files:
-            with open(join(dirname(__file__), './out', file),
-                        'rb') as audio_file:
-                speech_recognition_results = speech_to_text.recognize(
-                    audio=audio_file,
-                    content_type='audio/wav',
-                    timestamps=True,
-                ).get_result()
-            print(json.dumps(speech_recognition_results, indent=2)) 
-    except watson.WatsonApiException as ex:
+        with open(filepath, 'rb') as audio_file:
+            speech_recognition_results = speech_to_text.recognize(
+                audio=audio_file,
+                content_type='audio/wav',
+                timestamps=True,
+            ).get_result()
+        print(speech_recognition_results["results"][0]["alternatives"][0]["transcript"]) 
+    except WatsonApiException as ex:
         print("Method failed with status code " + str(ex.code) + ": " + ex.message)
 
 def find_shortest_pause(signal):
