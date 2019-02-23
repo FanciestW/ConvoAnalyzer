@@ -1,6 +1,7 @@
 import librosa
 import io
 import os
+import time
 import speech_recognition
 import numpy as np
 import matplotlib
@@ -44,7 +45,7 @@ def main():
     silence_window = int(sample_rate / 500)
 
     bool_signal = get_bool_arr(smoothed_signal, threshold, silence_window)
-    bool_signal = smooth_signal(bool_signal, int(sample_rate/500), 100)
+    bool_signal = smooth_signal(bool_signal, int(sample_rate/10), 100)
     write_to_audio_file("out/before_bool.wav", bool_signal.astype(float), sample_rate)
     bool_signal = cut_audio(bool_signal, 0.150)
     write_to_audio_file("out/after_bool.wav", bool_signal.astype(float), sample_rate)
@@ -53,8 +54,18 @@ def main():
     gender_arr = []
     for i, clip in enumerate(audio_clips):
         write_to_audio_file(f"out/clip{i}.wav", clip, sample_rate)
-        get_gender(smooth_signal(clip, window=10, passes=10))
-    getAudioText(join(dirname(__file__), './out', 'clip2.wav'))
+        gender_arr.append(get_gender(smooth_signal(clip, window=10, passes=10)))
+        
+    final_clips = combine_gender_audio(audio_clips, gender_arr)
+    for i, clip in enumerate(final_clips):
+        write_to_audio_file(f"out/final_clip{i}.wav", clip, sample_rate)
+    
+    all_text = list()
+    for i in range(len(final_clips)):
+        all_text.append(getAudioText(join(dirname(__file__), './out', f'final_clip{i}.wav')))
+    
+    for i, text in enumerate(all_text):
+        print(f"{i}: {text}")
 
 def get_gender(signal, sr=44100):
     signal = smooth_signal(signal, 50, 10)
@@ -90,15 +101,23 @@ def get_gender(signal, sr=44100):
 def combine_gender_audio(signals_arr, gender_arr):
     if len(signals_arr) != len(gender_arr) or len(signals_arr) < 1 or len(gender_arr) < 1:
         return None
-    return_signals = signals_arr[0]
-    tmp = signals_arr[0]
-    gender = gender_arr[0]
-    i = 1
-    while i < len(gender_arr):
-        if gender_arr[i] == gender:
-            
-        
-
+    
+    all_signals = []
+    clip = np.array([])
+    tmp_gender = None
+    j = 0
+    for i, gender in enumerate(gender_arr):
+        if tmp_gender == None:
+            tmp_gender = gender
+        elif tmp_gender != gender:
+            clip = np.concatenate(signals_arr[j:i]).ravel().tolist()
+            all_signals.append(np.array(clip))
+            clip = np.array([])
+            tmp_gender = gender
+            j = i
+    clip = np.concatenate(signals_arr[j:]).ravel().tolist()
+    all_signals.append(np.array(clip))
+    return all_signals
 
 def cut_audio(arr, tolerence=0.2, sr=44100):
     time_stamps = list()
@@ -177,7 +196,8 @@ def getAudioText(filepath):
                 content_type='audio/wav',
                 timestamps=True,
             ).get_result()
-        print(speech_recognition_results["results"][0]["alternatives"][0]["transcript"]) 
+        print(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
+        return(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
     except WatsonApiException as ex:
         print("Method failed with status code " + str(ex.code) + ": " + ex.message)
 
