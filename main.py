@@ -48,8 +48,8 @@ def main():
     bool_signal = get_silence_bool(smoothed_signal, threshold, silence_window)
     bool_signal = smooth_signal(bool_signal, int(sample_rate/150), 50)
     write_to_audio_file("out/before_bool.wav", bool_signal.astype(float), sample_rate)
-    time_stamps = get_cut_times(bool_signal, tolerence=0.15)
-    bool_signal = get_cut_bool_arr(signal, time_stamps, padding=int(sample_rate/10))
+    time_stamps = get_cut_times(bool_signal, tolerence=0.15, sr=sample_rate)
+    bool_signal = get_cut_bool_arr(signal, time_stamps, sr=sample_rate, padding=int(sample_rate/10))
     write_to_audio_file("out/after_bool.wav", bool_signal.astype(float), sample_rate)
 
     audio_clips = split_np_array(signal, bool_signal, padding=int(sample_rate/10))
@@ -66,10 +66,13 @@ def main():
     for i in range(len(final_clips)):
         all_text.append(getAudioText(join(dirname(__file__), './out', f'final_clip{i}.wav')))
     
-    for time, text in zip(time_stamps[::2], all_text):
-        print(f"{time} - {text}")
+    for time, text in zip(time_stamps, all_text):
+        print("%8.3fs - %s" %(time, text))
 
 def get_gender(signal, sr=44100):
+    '''
+    Given a clip of audio named signal, return a potential gender
+    '''
     signal = smooth_signal(signal, 50, 10)
     male_points = 0
     female_points = 0
@@ -101,6 +104,10 @@ def get_gender(signal, sr=44100):
         return("female")
 
 def combine_gender_audio(signals_arr, timestamps, gender_arr):
+    '''
+    Combines audio clips that have the same gender back to back.
+    This will also return timestamps of the new clips of audio
+    '''
     if len(signals_arr) != len(gender_arr) or len(signals_arr) < 1 or len(gender_arr) < 1:
         return None, None
     elif math.ceil(len(timestamps) / 2) < len(gender_arr):
@@ -116,11 +123,14 @@ def combine_gender_audio(signals_arr, timestamps, gender_arr):
             tmp_gender = gender
         elif tmp_gender != gender:
             clip = np.concatenate(signals_arr[j:i]).ravel().tolist()
-            new_timestamps.extend([timestamps[j*2], timestamps[i*j]])
+            new_timestamps.extend([timestamps[j]])
             all_signals.append(np.array(clip))
             clip = np.array([])
             tmp_gender = gender
             j = i
+        if i >= len(gender_arr)-1:
+            new_timestamps.extend([timestamps[j]])
+
     clip = np.concatenate(signals_arr[j:]).ravel().tolist()
     all_signals.append(np.array(clip))
     return all_signals, new_timestamps
@@ -132,11 +142,11 @@ def get_cut_times(bool_arr, tolerence=0.2, sr=44100):
     j = 0
     while i < len(bool_arr):
         # Start of new audio segment
-        if bool_arr[i] >= 0.5 and not high:
+        if bool_arr[i] >= 0.4 and not high:
             time_stamps.append(i / sr)
             high = True
 
-        if bool_arr[i] < 0.5 and high:
+        if bool_arr[i] < 0.4 and high:
             j = i
             while j < len(bool_arr):
                 if bool_arr[j] > 0.5:
@@ -221,7 +231,7 @@ def getAudioText(filepath):
                 content_type='audio/wav',
                 timestamps=True,
             ).get_result()
-        print(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
+        # print(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
         return(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
     except WatsonApiException as ex:
         print("Method failed with status code " + str(ex.code) + ": " + ex.message)
