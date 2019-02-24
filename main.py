@@ -1,4 +1,5 @@
 import librosa
+import math
 import io
 import os
 import time
@@ -22,7 +23,7 @@ speech_to_text = SpeechToTextV1(
 )
 
 def main():
-    audio_file = "audio/dailylife024.wav"
+    audio_file = "audio/schoollife01.wav"
     signal,sample_rate = librosa.load(audio_file, sr=None, mono=True)
 
     smoothed_signal = abs(signal)
@@ -42,21 +43,22 @@ def main():
     write_to_audio_file("out/after_smooth.wav", smoothed_signal, sample_rate)
 
     threshold = 0.015
-    silence_window = int(sample_rate / 500)
+    silence_window = int(sample_rate / 150)
 
-    bool_signal = get_bool_arr(smoothed_signal, threshold, silence_window)
-    bool_signal = smooth_signal(bool_signal, int(sample_rate/10), 100)
+    bool_signal = get_silence_bool(smoothed_signal, threshold, silence_window)
+    bool_signal = smooth_signal(bool_signal, int(sample_rate/150), 50)
     write_to_audio_file("out/before_bool.wav", bool_signal.astype(float), sample_rate)
-    bool_signal = cut_audio(bool_signal, 0.150)
+    time_stamps = get_cut_times(bool_signal, tolerence=0.15)
+    bool_signal = get_cut_bool_arr(signal, time_stamps, padding=int(sample_rate/10))
     write_to_audio_file("out/after_bool.wav", bool_signal.astype(float), sample_rate)
 
-    audio_clips = split_np_array(signal, bool_signal)
+    audio_clips = split_np_array(signal, bool_signal, padding=int(sample_rate/10))
     gender_arr = []
     for i, clip in enumerate(audio_clips):
         write_to_audio_file(f"out/clip{i}.wav", clip, sample_rate)
         gender_arr.append(get_gender(smooth_signal(clip, window=10, passes=10)))
-        
-    final_clips = combine_gender_audio(audio_clips, gender_arr)
+       
+    final_clips, time_stamps = combine_gender_audio(audio_clips, time_stamps, gender_arr)
     for i, clip in enumerate(final_clips):
         write_to_audio_file(f"out/final_clip{i}.wav", clip, sample_rate)
     
@@ -64,8 +66,8 @@ def main():
     for i in range(len(final_clips)):
         all_text.append(getAudioText(join(dirname(__file__), './out', f'final_clip{i}.wav')))
     
-    for i, text in enumerate(all_text):
-        print(f"{i}: {text}")
+    for time, text in zip(time_stamps[::2], all_text):
+        print(f"{time} - {text}")
 
 def get_gender(signal, sr=44100):
     signal = smooth_signal(signal, 50, 10)
@@ -98,10 +100,13 @@ def get_gender(signal, sr=44100):
         print("female")
         return("female")
 
-def combine_gender_audio(signals_arr, gender_arr):
+def combine_gender_audio(signals_arr, timestamps, gender_arr):
     if len(signals_arr) != len(gender_arr) or len(signals_arr) < 1 or len(gender_arr) < 1:
-        return None
-    
+        return None, None
+    elif math.ceil(len(timestamps) / 2) < len(gender_arr):
+        return None, None
+    timestamps = timestamps[::2]
+    new_timestamps = []
     all_signals = []
     clip = np.array([])
     tmp_gender = None
@@ -111,31 +116,30 @@ def combine_gender_audio(signals_arr, gender_arr):
             tmp_gender = gender
         elif tmp_gender != gender:
             clip = np.concatenate(signals_arr[j:i]).ravel().tolist()
+            new_timestamps.extend([timestamps[j*2], timestamps[i*j]])
             all_signals.append(np.array(clip))
             clip = np.array([])
             tmp_gender = gender
             j = i
     clip = np.concatenate(signals_arr[j:]).ravel().tolist()
     all_signals.append(np.array(clip))
-    return all_signals
+    return all_signals, new_timestamps
 
-def cut_audio(arr, tolerence=0.2, sr=44100):
+def get_cut_times(bool_arr, tolerence=0.2, sr=44100):
     time_stamps = list()
-    bool_arr = []
-    
     high = False
     i = 0
     j = 0
-    while i < len(arr):
+    while i < len(bool_arr):
         # Start of new audio segment
-        if arr[i] >= 0.5 and not high:
+        if bool_arr[i] >= 0.5 and not high:
             time_stamps.append(i / sr)
             high = True
 
-        if arr[i] < 0.5 and high:
+        if bool_arr[i] < 0.5 and high:
             j = i
-            while j < len(arr):
-                if arr[j] > 0.5:
+            while j < len(bool_arr):
+                if bool_arr[j] > 0.5:
                     if (j - i) / sr > tolerence:
                         time_stamps.append(i / sr)
                         high = False
@@ -143,16 +147,35 @@ def cut_audio(arr, tolerence=0.2, sr=44100):
                 
                 j += 1
             
-            bool_arr += [high] * (j - i)
             i = j
         else:
-            bool_arr += [high]
             i += 1
     
-    print(time_stamps)
-    return np.array(bool_arr)
+    return(time_stamps)
 
-def get_bool_arr(arr, threshold, window):
+def get_cut_bool_arr(signal, timestamps, sr=44100, padding=0):
+    bool_arr = []
+    timestamps = (np.array(timestamps) * sr).astype(int).tolist()
+    for i, time in enumerate(timestamps):
+        if i % 2 == 0:
+            timestamps[i] -= padding
+        else:
+            timestamps[i] += padding
+
+    last = 0
+    for i, time in enumerate(timestamps):
+        if i % 2 == 0:
+            bool_arr += ((time - last) * [False])
+            last = time
+        else:
+            bool_arr += ((time - last) * [True])
+            last = time
+    if len(timestamps) % 2 == 1:
+        bool_arr += ((len(signal) - last) * [True])
+
+    return np.array(bool_arr)
+    
+def get_silence_bool(arr, threshold, window):
     bool_arr = list()
     i = 0
     while i < (len(arr) - window):
@@ -176,10 +199,12 @@ def write_to_audio_file(out_path, signal, sample_rate):
     librosa.output.write_wav(out_path, signal, sample_rate)
 
 # Given an np_array of signal, will split into arrays into true sections.
-def split_np_array(signal, bool_arr):
+def split_np_array(signal, bool_arr, padding=0, pad_val=0.):
     indices = np.nonzero(bool_arr[1:] != bool_arr[:-1])[0] + 1
     splits = np.split(signal, indices)
     splits = splits[0::2] if bool_arr[0] else splits[1::2]
+    for i, clip in enumerate(splits):
+        splits[i] = np.pad(clip, (padding, padding), 'constant', constant_values=(pad_val,pad_val))
     return splits
 
 def plot(*data):
