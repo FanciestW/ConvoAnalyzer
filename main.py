@@ -58,20 +58,23 @@ def main():
         write_to_audio_file(f"out/clip{i}.wav", clip, sample_rate)
         gender_arr.append(get_gender(smooth_signal(clip, window=10, passes=10)))
        
-    final_clips, time_stamps = combine_gender_audio(audio_clips, time_stamps, gender_arr)
+    results = combine_gender_audio(audio_clips, time_stamps, gender_arr)
+    final_clips = results['clips']
+    time_stamps = results['timestamps']
+    gender_arr = results['genders']
     for i, clip in enumerate(final_clips):
         write_to_audio_file(f"out/final_clip{i}.wav", clip, sample_rate)
     
-    all_text = list()
+    transcripts = []
     for i in range(len(final_clips)):
-        all_text.append(getAudioText(join(dirname(__file__), './out', f'final_clip{i}.wav')))
+        transcripts.append(getAudioText(join(dirname(__file__), './out', f'final_clip{i}.wav')))
     
-    for time, text in zip(time_stamps, all_text):
-        print("%8.3fs - %s" %(time, text))
+    for time, gender, text in zip(time_stamps, gender_arr, transcripts):
+        print("%8.3fs %6s - %s" %(time, gender, text))
 
 def get_gender(signal, sr=44100):
     '''
-    Given a clip of audio named signal, return a potential gender
+    Given a clip of audio named signal, return the potential gender
     '''
     signal = smooth_signal(signal, 50, 10)
     male_points = 0
@@ -97,10 +100,10 @@ def get_gender(signal, sr=44100):
             female_points += 1
     
     if male_points > female_points:
-        print("male")
+        # print("male")
         return("male")
     else:
-        print("female")
+        # print("female")
         return("female")
 
 def combine_gender_audio(signals_arr, timestamps, gender_arr):
@@ -114,6 +117,7 @@ def combine_gender_audio(signals_arr, timestamps, gender_arr):
         return None, None
     timestamps = timestamps[::2]
     new_timestamps = []
+    new_gender_arr = []
     all_signals = []
     clip = np.array([])
     tmp_gender = None
@@ -121,9 +125,11 @@ def combine_gender_audio(signals_arr, timestamps, gender_arr):
     for i, gender in enumerate(gender_arr):
         if tmp_gender == None:
             tmp_gender = gender
+            new_gender_arr.append(gender)
         elif tmp_gender != gender:
             clip = np.concatenate(signals_arr[j:i]).ravel().tolist()
             new_timestamps.extend([timestamps[j]])
+            new_gender_arr.append(gender)
             all_signals.append(np.array(clip))
             clip = np.array([])
             tmp_gender = gender
@@ -133,7 +139,7 @@ def combine_gender_audio(signals_arr, timestamps, gender_arr):
 
     clip = np.concatenate(signals_arr[j:]).ravel().tolist()
     all_signals.append(np.array(clip))
-    return all_signals, new_timestamps
+    return {'clips': all_signals, 'timestamps': new_timestamps, 'genders': new_gender_arr}
 
 def get_cut_times(bool_arr, tolerence=0.2, sr=44100):
     time_stamps = list()
