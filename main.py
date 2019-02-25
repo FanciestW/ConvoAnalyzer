@@ -23,7 +23,7 @@ speech_to_text = SpeechToTextV1(
 )
 
 def main():
-    audio_file = "audio/schoollife01.wav"
+    audio_file = "audio/custom01.wav"
     signal,sample_rate = librosa.load(audio_file, sr=None, mono=True)
 
     smoothed_signal = abs(signal)
