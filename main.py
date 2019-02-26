@@ -256,18 +256,24 @@ def getAudioText(filepath):
     except WatsonApiException as ex:
         print("Method failed with status code " + str(ex.code) + ": " + ex.message)
 
-# TODO::WIP
-def find_shortest_pause(signal):
-    '''
-    This finds the shortest pause.
-    This is used to find the where to cut up the audio
-    '''
-    longest = len(signal)
+# Finds the shortest pause in a signal array with given threshold.
+def find_shortest_pause(signal, threshold=0.01, sr=44100):
+    shortest = len(signal)
     i = 0
     j = 0
     while i < len(signal):
-
+        if signal[i] < threshold:
+            j = i
+            while j < len(signal):
+                if signal[j] >= threshold:
+                    pause = j - i
+                    if pause < shortest: 
+                        shortest = pause
+                    i = j
+                    break
+                j += 1
         i += 1
+    return shortest
 
 if __name__ == "__main__":
     main()
