@@ -3,7 +3,6 @@ import math
 import io
 import os
 import time
-import speech_recognition
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
@@ -255,25 +254,6 @@ def getAudioText(filepath):
         return(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
     except WatsonApiException as ex:
         print("Method failed with status code " + str(ex.code) + ": " + ex.message)
-
-# Finds the shortest pause in a signal array with given threshold.
-def find_shortest_pause(signal, threshold=0.01, sr=44100):
-    shortest = len(signal)
-    i = 0
-    j = 0
-    while i < len(signal):
-        if signal[i] < threshold:
-            j = i
-            while j < len(signal):
-                if signal[j] >= threshold:
-                    pause = j - i
-                    if pause < shortest: 
-                        shortest = pause
-                    i = j
-                    break
-                j += 1
-        i += 1
-    return shortest
 
 if __name__ == "__main__":
     main()
