@@ -29,7 +29,7 @@ def main():
 
     smoothed_signal = abs(signal)
 
-    out_dir = "out/"
+    out_dir = "./out/"
     if not os.path.exists(os.path.dirname(out_dir)):
         try:
             os.makedirs(os.path.dirname(out_dir))
