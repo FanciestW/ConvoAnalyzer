@@ -2,6 +2,7 @@ import librosa
 import math
 import io
 import os
+import shutil
 import time
 import numpy as np
 import matplotlib
@@ -71,7 +72,7 @@ def main():
         print("%8.3fs %6s - %s" %(time, gender, text))
 
     if not DEBUG_MODE:
-
+        shutil.rmtree(out_dir)
 
 def get_gender(signal, sr=44100):
     '''
