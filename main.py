@@ -10,11 +10,12 @@ from matplotlib import pyplot as plt
 from sys import platform as sys_pf
 from scipy.fftpack import fft
 
-
 from watson_developer_cloud import SpeechToTextV1
 from watson_developer_cloud import WatsonApiException
 from os.path import join, dirname
 import json
+
+DEBUG_MODE = True
 
 speech_to_text = SpeechToTextV1(
     iam_apikey='65qVRIfF-CQYgk268h9NJERzwiY-1xfRY6WCmpU9iF2L',
@@ -22,7 +23,7 @@ speech_to_text = SpeechToTextV1(
 )
 
 def main():
-    audio_file = "audio/schoollife01.wav"
+    audio_file = "audio/custom01.wav"
     signal,sample_rate = librosa.load(audio_file, sr=None, mono=True)
 
     smoothed_signal = abs(signal)
@@ -68,6 +69,9 @@ def main():
     
     for time, gender, text in zip(time_stamps, gender_arr, transcripts):
         print("%8.3fs %6s - %s" %(time, gender, text))
+
+    if not DEBUG_MODE:
+
 
 def get_gender(signal, sr=44100):
     '''
