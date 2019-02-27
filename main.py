@@ -83,7 +83,6 @@ def get_gender(signal, sr=44100):
         fourier_mag = smooth_signal(fourier_mag, 10, 10)
         freq = np.fft.rfftfreq(signal.size, d=1./sr)
         start_male_range = np.argmax(freq >= 85)
-        start_male_rng = np.argmax(freq >= 85)[0]
         end_male_range = np.argmax(freq >= 185)
         start_female_range = np.argmax(freq >= 165)
         end_female_range = np.argmax(freq >= 255)
