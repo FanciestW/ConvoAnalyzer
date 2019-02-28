@@ -1,3 +1,6 @@
+# Ignore VS Code directory
+.vscode/
+
 # Ignore program output directory
 out/
 
