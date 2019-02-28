@@ -169,11 +169,9 @@ def get_cut_times(bool_arr, tolerence=0.2, sr=44100):
                         high = False
                     break
                 j += 1
-
             i = j
         else:
             i += 1
-    
     return(time_stamps)
 
 def get_cut_bool_arr(signal, timestamps, sr=44100, padding=0):
