@@ -1,3 +1,8 @@
+"""
+Name: ConvoAnalyzer.py
+Description: A Python3 program that transcribes male/female conversations
+Author: William Lin
+"""
 import librosa
 import math
 import os
@@ -25,7 +30,7 @@ speech_to_text = SpeechToTextV1(
 )
 
 def main():
-    signal,sample_rate = librosa.load(AUDIO_FILE, sr=None, mono=True)
+    signal, sample_rate = librosa.load(AUDIO_FILE, sr=None, mono=True)
     smoothed_signal = abs(signal)
 
     if not os.path.exists(os.path.dirname(OUT_DIR)):
@@ -54,18 +59,18 @@ def main():
     for i, clip in enumerate(audio_clips):
         write_to_audio_file(f"out/clip{i}.wav", clip, sample_rate)
         gender_arr.append(get_gender(smooth_signal(clip, window=10, passes=10)))
-       
+
     results = combine_gender_audio(audio_clips, time_stamps, gender_arr)
     final_clips = results['clips']
     time_stamps = results['timestamps']
     gender_arr = results['genders']
     for i, clip in enumerate(final_clips):
         write_to_audio_file(f"out/final_clip{i}.wav", clip, sample_rate)
-    
+
     transcripts = []
     for i in range(len(final_clips)):
         transcripts.append(getAudioText(join(dirname(__file__), './out', f'final_clip{i}.wav')))
-    
+
     for time, gender, text in zip(time_stamps, gender_arr, transcripts):
         print("%8.3fs %6s - %s" %(time, gender, text))
 
@@ -102,13 +107,13 @@ def get_gender(signal, sr=44100):
             male_points += 1
         if FEMALE_FREQ_START <= max_freq <= FEMALE_FREQ_END:
             female_points += 1
-    
+
     if male_points > female_points:
         # print("male")
-        return("male")
+        return "male"
     else:
         # print("female")
-        return("female")
+        return "female"
 
 def combine_gender_audio(signals_arr, timestamps, gender_arr):
     '''
@@ -172,7 +177,7 @@ def get_cut_times(bool_arr, tolerence=0.2, sr=44100):
             i = j
         else:
             i += 1
-    return(time_stamps)
+    return time_stamps
 
 def get_cut_bool_arr(signal, timestamps, sr=44100, padding=0):
     '''
@@ -234,7 +239,7 @@ def split_np_array(signal, bool_arr, padding=0, pad_val=0.):
     splits = np.split(signal, indices)
     splits = splits[0::2] if bool_arr[0] else splits[1::2]
     for i, clip in enumerate(splits):
-        splits[i] = np.pad(clip, (padding, padding), 'constant', constant_values=(pad_val,pad_val))
+        splits[i] = np.pad(clip, (padding, padding), 'constant', constant_values=(pad_val, pad_val))
     return splits
 
 # Plots arrays onto a pyplot figure with graphs.
@@ -254,7 +259,7 @@ def getAudioText(filepath):
                 timestamps=True,
             ).get_result()
         # print(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
-        return(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
+        return speech_recognition_results["results"][0]["alternatives"][0]["transcript"]
     except WatsonApiException as ex:
         print("Method failed with status code " + str(ex.code) + ": " + ex.message)
 
