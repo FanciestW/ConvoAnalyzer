@@ -167,7 +167,7 @@ def get_cut_times(bool_arr, tolerence=0.2, sr=44100):
                     if (j - i) / sr > tolerence:
                         time_stamps.append(i / sr)
                         high = False
-                    break 
+                    break
                 j += 1
 
             i = j
@@ -201,7 +201,7 @@ def get_cut_bool_arr(signal, timestamps, sr=44100, padding=0):
         bool_arr += ((len(signal) - last) * [True])
 
     return np.array(bool_arr)
-    
+
 def get_silence_bool(arr, threshold, window):
     '''
     Returns a boolean array the maps silences that surpass a certain threshold.
