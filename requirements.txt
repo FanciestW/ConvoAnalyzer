@@ -1,0 +1,12 @@
+# ==============================================================================
+# TO DELETE ALL PACKAGES, RUN:
+# pip freeze | xargs pip uninstall -y
+# TO INSTALL REQUIRED PACKAGES, RUN:
+# pip install -r requirements.txt
+# ==============================================================================
+# Requirements for ConvoAnalyzer. These pip packages must be installed.
+librosa
+numpy
+matplotlib
+scipy
+watson_developer_cloud
