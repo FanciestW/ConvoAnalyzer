@@ -1,22 +1,28 @@
+"""
+Name: ConvoAnalyzer.py
+Description: A Python3 program that transcribes male/female conversations
+Author: William Lin
+"""
 import librosa
 import math
-import io
 import os
 import shutil
-import time
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-from sys import platform as sys_pf
-from scipy.fftpack import fft
 
 from watson_developer_cloud import SpeechToTextV1
 from watson_developer_cloud import WatsonApiException
 from os.path import join, dirname
-import json
 
 DEBUG_MODE = True
+MALE_FREQ_START = 65
+MALE_FREQ_END = 185
+FEMALE_FREQ_START = 165
+FEMALE_FREQ_END = 255
+AUDIO_FILE = "audio/custom01.wav"
+OUT_DIR = "./out/"
 
 speech_to_text = SpeechToTextV1(
     iam_apikey='65qVRIfF-CQYgk268h9NJERzwiY-1xfRY6WCmpU9iF2L',
@@ -24,15 +30,12 @@ speech_to_text = SpeechToTextV1(
 )
 
 def main():
-    audio_file = "audio/custom01.wav"
-    signal,sample_rate = librosa.load(audio_file, sr=None, mono=True)
-
+    signal, sample_rate = librosa.load(AUDIO_FILE, sr=None, mono=True)
     smoothed_signal = abs(signal)
 
-    out_dir = "./out/"
-    if not os.path.exists(os.path.dirname(out_dir)):
+    if not os.path.exists(os.path.dirname(OUT_DIR)):
         try:
-            os.makedirs(os.path.dirname(out_dir))
+            os.makedirs(os.path.dirname(OUT_DIR))
         except OSError as exc: # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
@@ -56,23 +59,23 @@ def main():
     for i, clip in enumerate(audio_clips):
         write_to_audio_file(f"out/clip{i}.wav", clip, sample_rate)
         gender_arr.append(get_gender(smooth_signal(clip, window=10, passes=10)))
-       
+
     results = combine_gender_audio(audio_clips, time_stamps, gender_arr)
     final_clips = results['clips']
     time_stamps = results['timestamps']
     gender_arr = results['genders']
     for i, clip in enumerate(final_clips):
         write_to_audio_file(f"out/final_clip{i}.wav", clip, sample_rate)
-    
+
     transcripts = []
     for i in range(len(final_clips)):
         transcripts.append(getAudioText(join(dirname(__file__), './out', f'final_clip{i}.wav')))
-    
+
     for time, gender, text in zip(time_stamps, gender_arr, transcripts):
         print("%8.3fs %6s - %s" %(time, gender, text))
 
     if not DEBUG_MODE:
-        shutil.rmtree(out_dir)
+        shutil.rmtree(OUT_DIR)
 
 def get_gender(signal, sr=44100):
     '''
@@ -83,30 +86,34 @@ def get_gender(signal, sr=44100):
     female_points = 0
     small_signals = np.array_split(signal, 4)
     for sig in small_signals:
-        fourier = np.fft.rfft(signal)
+        fourier = np.fft.rfft(sig)
         fourier_mag = np.abs(fourier)
         fourier_mag = smooth_signal(fourier_mag, 10, 10)
-        freq = np.fft.rfftfreq(signal.size, d=1./sr)
-        start_male_range = np.argmax(freq >= 85)
-        end_male_range = np.argmax(freq >= 185)
-        start_female_range = np.argmax(freq >= 165)
-        end_female_range = np.argmax(freq >= 255)
+        freq = np.fft.rfftfreq(sig.size, d=1./sr)
+        start_male_range = np.argmax(freq >= MALE_FREQ_START)
+        end_male_range = np.argmax(freq >= MALE_FREQ_END)
+        start_female_range = np.argmax(freq >= FEMALE_FREQ_START)
+        end_female_range = np.argmax(freq >= FEMALE_FREQ_END)
 
         male_avg = np.mean(fourier_mag[start_male_range:end_male_range])
         female_avg = np.mean(fourier_mag[start_female_range:end_female_range])
         max_freq = freq[np.argmax(fourier_mag)]
         # print(male_avg, female_avg, np.argmax(fourier_mag), max_freq)
-        if male_avg > female_avg:
+        if male_avg >= female_avg:
             male_points += 1
-        else:
+        elif male_avg < female_avg:
             female_points += 1
-    
+        if MALE_FREQ_START <= max_freq <= MALE_FREQ_END:
+            male_points += 1
+        if FEMALE_FREQ_START <= max_freq <= FEMALE_FREQ_END:
+            female_points += 1
+
     if male_points > female_points:
         # print("male")
-        return("male")
+        return "male"
     else:
         # print("female")
-        return("female")
+        return "female"
 
 def combine_gender_audio(signals_arr, timestamps, gender_arr):
     '''
@@ -165,15 +172,12 @@ def get_cut_times(bool_arr, tolerence=0.2, sr=44100):
                     if (j - i) / sr > tolerence:
                         time_stamps.append(i / sr)
                         high = False
-                    break 
-                
+                    break
                 j += 1
-            
             i = j
         else:
             i += 1
-    
-    return(time_stamps)
+    return time_stamps
 
 def get_cut_bool_arr(signal, timestamps, sr=44100, padding=0):
     '''
@@ -200,7 +204,7 @@ def get_cut_bool_arr(signal, timestamps, sr=44100, padding=0):
         bool_arr += ((len(signal) - last) * [True])
 
     return np.array(bool_arr)
-    
+
 def get_silence_bool(arr, threshold, window):
     '''
     Returns a boolean array the maps silences that surpass a certain threshold.
@@ -215,15 +219,14 @@ def get_silence_bool(arr, threshold, window):
         else:
             bool_arr.extend(window * [False])
         i += window
-    
     return np.array(bool_arr)
 
 # Given an numpy array, smooth the array using a window and number of passes.
 def smooth_signal(np_arr, window=5, passes=10):
-    for i in range(passes):
+    while passes > 0:
         weights = np.ones(window) / window
         np_arr = np.convolve(np_arr, weights, "same")
-
+        passes -= 1
     return np_arr
 
 # Writes signal array to a output .wav file.
@@ -236,7 +239,7 @@ def split_np_array(signal, bool_arr, padding=0, pad_val=0.):
     splits = np.split(signal, indices)
     splits = splits[0::2] if bool_arr[0] else splits[1::2]
     for i, clip in enumerate(splits):
-        splits[i] = np.pad(clip, (padding, padding), 'constant', constant_values=(pad_val,pad_val))
+        splits[i] = np.pad(clip, (padding, padding), 'constant', constant_values=(pad_val, pad_val))
     return splits
 
 # Plots arrays onto a pyplot figure with graphs.
@@ -256,7 +259,7 @@ def getAudioText(filepath):
                 timestamps=True,
             ).get_result()
         # print(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
-        return(speech_recognition_results["results"][0]["alternatives"][0]["transcript"])
+        return speech_recognition_results["results"][0]["alternatives"][0]["transcript"]
     except WatsonApiException as ex:
         print("Method failed with status code " + str(ex.code) + ": " + ex.message)
 
