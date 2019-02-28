@@ -11,8 +11,6 @@ import shutil
 import numpy as np
 import librosa
 from matplotlib import pyplot as plt
-import matplotlib
-matplotlib.use("TkAgg")
 
 from watson_developer_cloud import SpeechToTextV1
 from watson_developer_cloud import WatsonApiException
