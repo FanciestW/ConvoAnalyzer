@@ -1,4 +1,4 @@
-# ConvoAnalyzer [![Build Status](https://travis-ci.com/FanciestW/ConvoAnalyzer.svg?token=Mj9EgDohGpNEFd2iPtCp&branch=master)](https://travis-ci.com/FanciestW/ConvoAnalyzer)
+# ConvoAnalyzer [![Build Status](https://travis-ci.com/FanciestW/ConvoAnalyzer.svg?token=Mj9EgDohGpNEFd2iPtCp&branch=master)](https://travis-ci.com/FanciestW/ConvoAnalyzer) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1827293c78b24e90af53a06ae410f98f)](https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=FanciestW/ConvoAnalyzer&amp;utm_campaign=Badge_Grade)
 ### By: William Lin
 
 ## Requirements:
