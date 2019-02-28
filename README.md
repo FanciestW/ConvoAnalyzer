@@ -1,6 +1,10 @@
 # ConvoAnalyzer
 ### By: William Lin
 
+|    master    |     dev     |
+|:------------:|:-----------:|
+|[![Build Status](https://travis-ci.com/FanciestW/ConvoAnalyzer.svg?token=Mj9EgDohGpNEFd2iPtCp&branch=master)](https://travis-ci.com/FanciestW/ConvoAnalyzer)|[![Build Status](https://travis-ci.com/FanciestW/ConvoAnalyzer.svg?token=Mj9EgDohGpNEFd2iPtCp&branch=dev)](https://travis-ci.com/FanciestW/ConvoAnalyzer)|
+---
 ## Requirements:
 - Python 3.6 or 3.7
 - Pip3
