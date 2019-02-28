@@ -168,9 +168,8 @@ def get_cut_times(bool_arr, tolerence=0.2, sr=44100):
                         time_stamps.append(i / sr)
                         high = False
                     break 
-                
                 j += 1
-            
+
             i = j
         else:
             i += 1
@@ -217,15 +216,14 @@ def get_silence_bool(arr, threshold, window):
         else:
             bool_arr.extend(window * [False])
         i += window
-    
     return np.array(bool_arr)
 
 # Given an numpy array, smooth the array using a window and number of passes.
 def smooth_signal(np_arr, window=5, passes=10):
-    for i in range(passes):
+    while passes > 0:
         weights = np.ones(window) / window
         np_arr = np.convolve(np_arr, weights, "same")
-
+        passes -= 1
     return np_arr
 
 # Writes signal array to a output .wav file.
