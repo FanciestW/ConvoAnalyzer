@@ -3,33 +3,51 @@ Name: ConvoAnalyzer.py
 Description: A Python3 program that transcribes male/female conversations
 Author: William Lin
 """
-import librosa
 import math
+from os.path import join, dirname
 import os
+import argparse
 import shutil
 import numpy as np
-import matplotlib
-matplotlib.use("TkAgg")
+import librosa
 from matplotlib import pyplot as plt
 
 from watson_developer_cloud import SpeechToTextV1
 from watson_developer_cloud import WatsonApiException
-from os.path import join, dirname
 
-DEBUG_MODE = True
 MALE_FREQ_START = 65
 MALE_FREQ_END = 185
 FEMALE_FREQ_START = 165
 FEMALE_FREQ_END = 255
-AUDIO_FILE = "audio/custom01.wav"
-OUT_DIR = "./out/"
+
+DEL_HELP_TXT = "Flag to delete program output directory."
+INPUT_HELP_TXT = "Specifies the input .WAV file to be transcribed."
+OUTPUT_HELP_TXT = ("Specifies the output directory name for program outputs. "
+                   "If none is specified, the default is ./out/")
 
 speech_to_text = SpeechToTextV1(
     iam_apikey='65qVRIfF-CQYgk268h9NJERzwiY-1xfRY6WCmpU9iF2L',
     url='https://stream.watsonplatform.net/speech-to-text/api'
 )
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--input", help=INPUT_HELP_TXT)
+parser.add_argument("-o", "--output", help=OUTPUT_HELP_TXT)
+parser.add_argument("-d", "--delete", action="store_true", help=DEL_HELP_TXT)
+
 def main():
+    DEBUG_MODE = True
+    AUDIO_FILE = "audio/custom01.wav"
+    OUT_DIR = "./out/"
+
+    args = parser.parse_args()
+    if args.input:
+        AUDIO_FILE = args.input
+    if args.output:
+        OUT_DIR = args.output
+    if args.delete:
+        DEBUG_MODE = False
+
     signal, sample_rate = librosa.load(AUDIO_FILE, sr=None, mono=True)
     smoothed_signal = abs(signal)
 
@@ -252,9 +270,9 @@ def plot(*data):
 # Uses IBM Watson's speech recognition to get speech to text results
 def getAudioText(filepath):
     try:
-        with open(filepath, 'rb') as audio_file:
+        with open(filepath, 'rb') as AUDIO_FILE:
             speech_recognition_results = speech_to_text.recognize(
-                audio=audio_file,
+                audio=AUDIO_FILE,
                 content_type='audio/wav',
                 timestamps=True,
             ).get_result()
