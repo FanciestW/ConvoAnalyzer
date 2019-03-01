@@ -6,6 +6,7 @@ Author: William Lin
 import math
 from os.path import join, dirname
 import os
+import sys
 import argparse
 import shutil
 import numpy as np
@@ -20,10 +21,11 @@ MALE_FREQ_END = 185
 FEMALE_FREQ_START = 165
 FEMALE_FREQ_END = 255
 
-DEL_HELP_TXT = "Flag to delete program output directory."
+DEBUG_HELP_TXT = "Flag to delete program output directory."
+DIR_HELP_TXT = "Output directory for program output data. The default is ./out/"
 INPUT_HELP_TXT = "Specifies the input .WAV file to be transcribed."
-OUTPUT_HELP_TXT = ("Specifies the output directory name for program outputs. "
-                   "If none is specified, the default is ./out/")
+OUTPUT_HELP_TXT = ("Specifies the output file to write transcript to. "
+                   "If none is specified, it will print to console.")
 
 speech_to_text = SpeechToTextV1(
     iam_apikey='65qVRIfF-CQYgk268h9NJERzwiY-1xfRY6WCmpU9iF2L',
@@ -33,20 +35,24 @@ speech_to_text = SpeechToTextV1(
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", help=INPUT_HELP_TXT)
 parser.add_argument("-o", "--output", help=OUTPUT_HELP_TXT)
-parser.add_argument("-d", "--delete", action="store_true", help=DEL_HELP_TXT)
+parser.add_argument("-d", "--dir", help=DIR_HELP_TXT)
+parser.add_argument("--debug", action="store_true", help=DEBUG_HELP_TXT)
 
 def main():
-    DEBUG_MODE = True
+    DEBUG_MODE = False
     AUDIO_FILE = "audio/custom01.wav"
     OUT_DIR = "./out/"
 
+    # Parse passed arguments.
     args = parser.parse_args()
     if args.input:
         AUDIO_FILE = args.input
     if args.output:
-        OUT_DIR = args.output
-    if args.delete:
-        DEBUG_MODE = False
+        sys.stdout = open(args.output, 'w')
+    if args.dir:
+        OUT_DIR = args.dir + '/' if not args.dir.endswith('/') else args.dir
+    if args.debug:
+        DEBUG_MODE = True
 
     signal, sample_rate = librosa.load(AUDIO_FILE, sr=None, mono=True)
     smoothed_signal = abs(signal)
@@ -54,28 +60,28 @@ def main():
     if not os.path.exists(os.path.dirname(OUT_DIR)):
         try:
             os.makedirs(os.path.dirname(OUT_DIR))
-        except OSError as exc: # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
+        except Exception as ex: # Guard against race condition
+            print(ex)
 
-    write_to_audio_file("out/before_smooth.wav", smoothed_signal, sample_rate)
+    if DEBUG_MODE: write_to_audio_file(f"{OUT_DIR}before_smooth.wav", smoothed_signal, sample_rate)
     smoothed_signal = smooth_signal(smoothed_signal, 10, 10)
-    write_to_audio_file("out/after_smooth.wav", smoothed_signal, sample_rate)
+    if DEBUG_MODE: write_to_audio_file(f"{OUT_DIR}after_smooth.wav", smoothed_signal, sample_rate)
 
     threshold = 0.015
     silence_window = int(sample_rate / 150)
 
     bool_signal = get_silence_bool(smoothed_signal, threshold, silence_window)
     bool_signal = smooth_signal(bool_signal, int(sample_rate/150), 50)
-    write_to_audio_file("out/before_bool.wav", bool_signal.astype(float), sample_rate)
+
+    if DEBUG_MODE: write_to_audio_file(f"{OUT_DIR}before_bool.wav", bool_signal.astype(float), sample_rate)
     time_stamps = get_cut_times(bool_signal, tolerence=0.15, sr=sample_rate)
     bool_signal = get_cut_bool_arr(signal, time_stamps, sr=sample_rate, padding=int(sample_rate/10))
-    write_to_audio_file("out/after_bool.wav", bool_signal.astype(float), sample_rate)
+    if DEBUG_MODE: write_to_audio_file(f"{OUT_DIR}after_bool.wav", bool_signal.astype(float), sample_rate)
 
     audio_clips = split_np_array(signal, bool_signal, padding=int(sample_rate/10))
     gender_arr = []
     for i, clip in enumerate(audio_clips):
-        write_to_audio_file(f"out/clip{i}.wav", clip, sample_rate)
+        write_to_audio_file(f"{OUT_DIR}clip{i}.wav", clip, sample_rate)
         gender_arr.append(get_gender(smooth_signal(clip, window=10, passes=10)))
 
     results = combine_gender_audio(audio_clips, time_stamps, gender_arr)
@@ -83,11 +89,11 @@ def main():
     time_stamps = results['timestamps']
     gender_arr = results['genders']
     for i, clip in enumerate(final_clips):
-        write_to_audio_file(f"out/final_clip{i}.wav", clip, sample_rate)
+        write_to_audio_file(f"{OUT_DIR}final_clip{i}.wav", clip, sample_rate)
 
     transcripts = []
     for i in range(len(final_clips)):
-        transcripts.append(getAudioText(join(dirname(__file__), './out', f'final_clip{i}.wav')))
+        transcripts.append(getAudioText(join(dirname(__file__), OUT_DIR, f'final_clip{i}.wav')))
 
     for time, gender, text in zip(time_stamps, gender_arr, transcripts):
         print("%8.3fs %6s - %s" %(time, gender, text))
