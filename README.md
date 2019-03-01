@@ -7,16 +7,18 @@
 
 ## Usage:
 ```
-usage: main.py [-h] [-i INPUT] [-o OUTPUT] [-d]
+usage: main.py [-h] [-i INPUT] [-o OUTPUT] [-d DIR] [--debug]
 
 optional arguments:
   -h, --help            show this help message and exit
   -i INPUT, --input INPUT
                         Specifies the input .WAV file to be transcribed.
   -o OUTPUT, --output OUTPUT
-                        Specifies the output directory name for program
-                        outputs. If none is specified, the default is ./out/
-  -d, --delete          Flag to delete program output directory.
+                        Specifies the output file to write transcript to. If
+                        none is specified, it will print to console.
+  -d DIR, --dir DIR     Output directory for program output data. The default
+                        is ./out/
+  --debug               Flag to delete program output directory.
 ```
 
 ## How to Run:
